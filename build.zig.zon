@@ -1,0 +1,21 @@
+.{
+    .name = "libpd_zig",
+    .version = "0.1.0",
+    .dependencies = .{
+        .pure_data = .{
+            .url = "https://github.com/pure-data/pure-data/archive/refs/tags/0.55-2.tar.gz",
+            .hash = "12207b49b0eb22e139f4b92c71c103afd4ab93788c3fcfa8d2de9190e87a003d69e1",
+        },
+        .pd_module = .{
+            .url = "https://github.com/myQwil/pd_module/archive/refs/tags/v0.1.0.tar.gz",
+            .hash = "1220180ab2971d3f2b8171afe4f0d4319fcf3874e8d4cb78e9bfc5be71560c436ce5",
+        },
+    },
+    .paths = .{
+        "LICENSE",
+        "README.md",
+        "build.zig",
+        "build.zig.zon",
+        "libpd.zig",
+    },
+}

@@ -162,7 +162,9 @@ pub fn build(b: *std.Build) !void {
 	b.installArtifact(lib);
 
 	const pd_mod = b.dependency("pd_module", .{
-		.target = target, .optimize = optimize,
+		.target = target,
+		.optimize = optimize,
+		.float_size = @as(u8, if (opt.double) 64 else 32),
 	}).module("pd");
 
 	const mod = b.addModule("pd", .{

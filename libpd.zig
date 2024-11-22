@@ -126,9 +126,9 @@ pub const Patch = struct {
 // -----------------------------------------------------------------------------
 
 pub fn computeAudio(state: bool) void {
-	startMessage(1) catch {};
+	_ = libpd_start_message(1);
 	addFloat(@floatFromInt(@intFromBool(state)));
-	finishMessage("pd", "dsp") catch {};
+	_ = libpd_finish_message("pd", "dsp");
 }
 
 /// Return pd's fixed block size: the number of sample frames per 1 pd tick.

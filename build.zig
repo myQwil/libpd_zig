@@ -71,7 +71,7 @@ pub fn build(b: *std.Build) !void {
 			try files.append(b.fmt("{s}{s}/{s}.c", .{ "extra/", s, s }));
 		}
 		try files.append("extra/pd~/pdsched.c");
-		lib.defineCMacro("LIBPD_EXTRA", null);
+		lib.root_module.addCMacro("LIBPD_EXTRA", "1");
 	}
 
 	if (opt.util) {
@@ -80,18 +80,18 @@ pub fn build(b: *std.Build) !void {
 		}
 	}
 
-	lib.defineCMacro("PD", null);
-	lib.defineCMacro("PD_INTERNAL", null);
-	lib.defineCMacro("USEAPI_DUMMY", null);
-	lib.defineCMacro("HAVE_UNISTD_H", null);
+	lib.root_module.addCMacro("PD", "1");
+	lib.root_module.addCMacro("PD_INTERNAL", "1");
+	lib.root_module.addCMacro("USEAPI_DUMMY", "1");
+	lib.root_module.addCMacro("HAVE_UNISTD_H", "1");
 
 	if (opt.multi) {
-		lib.defineCMacro("PDINSTANCE", null);
-		lib.defineCMacro("PDTHREADS", null);
+		lib.root_module.addCMacro("PDINSTANCE", "1");
+		lib.root_module.addCMacro("PDTHREADS", "1");
 	}
 
 	if (opt.double) {
-		lib.defineCMacro("PD_FLOATSIZE", "64");
+		lib.root_module.addCMacro("PD_FLOATSIZE", "64");
 	}
 
 	var flags = std.ArrayList([]const u8).init(b.allocator);
@@ -99,26 +99,26 @@ pub fn build(b: *std.Build) !void {
 	try flags.append("-fno-sanitize=undefined");
 	if (optimize != .Debug) {
 		try flags.appendSlice(&.{
-			"-ffast-math", "-funroll-loops", "-fomit-frame-pointer"
+			"-ffast-math", "-funroll-loops", "-fomit-frame-pointer", "-Wno-error=date-time",
 		});
 	}
 
 	const os = target.result.os.tag;
 	switch (os) {
 		.windows => {
-			lib.defineCMacro("WINVER", "0x502");
-			lib.defineCMacro("WIN32", null);
-			lib.defineCMacro("_WIN32", null);
+			lib.root_module.addCMacro("WINVER", "0x502");
+			lib.root_module.addCMacro("WIN32", "1");
+			lib.root_module.addCMacro("_WIN32", "1");
 			lib.linkSystemLibrary("ws2_32");
 			lib.linkSystemLibrary("kernel32");
 		},
 		.macos => {
-			lib.defineCMacro("HAVE_ALLOCA_H", null);
-			lib.defineCMacro("HAVE_LIBDL", null);
-			lib.defineCMacro("HAVE_MACHINE_ENDIAN_H", null);
-			lib.defineCMacro("_DARWIN_C_SOURCE", null);
-			lib.defineCMacro("_DARWIN_UNLIMITED_SELECT", null);
-			lib.defineCMacro("FD_SETSIZE", "10240");
+			lib.root_module.addCMacro("HAVE_ALLOCA_H", "1");
+			lib.root_module.addCMacro("HAVE_LIBDL", "1");
+			lib.root_module.addCMacro("HAVE_MACHINE_ENDIAN_H", "1");
+			lib.root_module.addCMacro("_DARWIN_C_SOURCE", "1");
+			lib.root_module.addCMacro("_DARWIN_UNLIMITED_SELECT", "1");
+			lib.root_module.addCMacro("FD_SETSIZE", "10240");
 			lib.linkSystemLibrary("dynamiclib");
 			lib.linkSystemLibrary("dl");
 		},
@@ -139,10 +139,10 @@ pub fn build(b: *std.Build) !void {
 			try flags.appendSlice(&.{
 				"-Wno-int-to-pointer-cast", "-Wno-pointer-to-int-cast"
 			});
-			lib.defineCMacro("HAVE_ENDIAN_H", null);
+			lib.root_module.addCMacro("HAVE_ENDIAN_H", "1");
 			if (os == .linux) {
-				lib.defineCMacro("HAVE_ALLOCA_H", null);
-				lib.defineCMacro("HAVE_LIBDL", null);
+				lib.root_module.addCMacro("HAVE_ALLOCA_H", "1");
+				lib.root_module.addCMacro("HAVE_LIBDL", "1");
 				lib.linkSystemLibrary("dl");
 			}
 		}

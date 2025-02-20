@@ -1,11 +1,12 @@
 const std = @import("std");
+const LinkMode = std.builtin.LinkMode;
 
 pub const Options = struct {
 	util: bool = true,
 	extra: bool = true,
 	multi: bool = false,
 	double: bool = false,
-	shared: bool = false,
+	linkage: LinkMode = .static,
 };
 
 pub fn build(b: *std.Build) !void {
@@ -22,16 +23,19 @@ pub fn build(b: *std.Build) !void {
 			orelse defaults.multi,
 		.double = b.option(bool, "double", "compile with double-precision support")
 			orelse defaults.double,
-		.shared = b.option(bool, "shared", "Build shared library")
-			orelse defaults.shared,
+		.linkage = b.option(LinkMode, "linkage", "Library linking method")
+			orelse defaults.linkage,
 	};
 
-	const lib = if (opt.shared) b.addSharedLibrary(.{
-		.name = "pd", .target = target, .optimize = optimize, .pic = true,
-	}) else b.addStaticLibrary(.{
-		.name = "pd", .target = target, .optimize = optimize,
+	const lib = b.addLibrary(.{
+		.name = "pd",
+		.linkage = opt.linkage,
+		.root_module = b.createModule(.{
+			.target = target,
+			.optimize = optimize,
+			.link_libc = true,
+		}),
 	});
-	lib.linkLibC();
 
 	const pd_dep = b.dependency("pure_data", .{
 		.target = target,
@@ -148,7 +152,7 @@ pub fn build(b: *std.Build) !void {
 		}
 	}
 
-	if (os != .emscripten and os != .wasi and opt.shared) {
+	if (os != .emscripten and os != .wasi and opt.linkage == .dynamic) {
 		lib.linkSystemLibrary("pthread");
 		lib.linkSystemLibrary("m");
 	}

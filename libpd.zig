@@ -88,8 +88,8 @@ pub const clearSearchPath = libpd_clear_search_path;
 /// Relative paths are relative to the current working directory.
 ///
 /// Unlike desktop pd, *no* search paths are set by default (ie. extra)
-pub fn addToSearchPath(path: [:0]const u8) void {
-	libpd_add_to_search_path(path.ptr);
+pub fn addToSearchPath(path: [*:0]const u8) void {
+	libpd_add_to_search_path(path);
 }
 extern fn libpd_add_to_search_path([*:0]const u8) void;
 
@@ -106,10 +106,11 @@ pub const Patch = struct {
 	dollar_zero: u32,
 
 	/// Open a patch by filename and parent dir path.
-	pub fn fromFile(name: [:0]const u8, dir: [:0]const u8) Error!Self {
-		return if (libpd_openfile(name.ptr, dir.ptr)) |file|
-			Self{ .handle = file, .dollar_zero = @intCast(libpd_getdollarzero(file)) }
-			else Error.OpenFile;
+	pub fn fromFile(name: [*:0]const u8, dir: [*:0]const u8) Error!Self {
+		return if (libpd_openfile(name, dir)) |file| Self{
+			.handle = file,
+			.dollar_zero = @intCast(libpd_getdollarzero(file)),
+		} else Error.OpenFile;
 	}
 	extern fn libpd_openfile([*:0]const u8, [*:0]const u8) ?*anyopaque;
 	extern fn libpd_getdollarzero(*anyopaque) c_int;
@@ -228,15 +229,15 @@ extern fn libpd_process_raw_double(?[*]const f64, ?[*]f64) c_int;
 // -----------------------------------------------------------------------------
 
 /// Get the size of an array by name.
-pub fn arraySize(name: [:0]const u8) Error!u32 {
-	if (libpd_arraysize(name.ptr) < 0)
+pub fn arraySize(name: [*:0]const u8) Error!u32 {
+	if (libpd_arraysize(name) < 0)
 		return Error.ArrayNotFound;
 }
 extern fn libpd_arraysize([*:0]const u8) c_int;
 
 /// (re)size an array by name; sizes <= 0 are clipped to 1.
-pub fn resizeArray(name: [:0]const u8, size: usize) Error!void {
-	if (libpd_resize_array(name.ptr, @intCast(size)) != 0)
+pub fn resizeArray(name: [*:0]const u8, size: usize) Error!void {
+	if (libpd_resize_array(name, @intCast(size)) != 0)
 		return Error.ArrayNotFound;
 }
 extern fn libpd_resize_array([*:0]const u8, c_long) c_int;
@@ -244,8 +245,8 @@ extern fn libpd_resize_array([*:0]const u8, c_long) c_int;
 /// Read values from named src array and write into `dest` starting at an offset.
 ///
 /// Note: performs no bounds checking on `dest`.
-pub fn readArray(dest: []f32, name: [:0]const u8, offset: u32) Error!void {
-	return switch (libpd_read_array(dest.ptr, name.ptr, offset, @intCast(dest.len))) {
+pub fn readArray(dest: []f32, name: [*:0]const u8, offset: u32) Error!void {
+	return switch (libpd_read_array(dest.ptr, name, offset, @intCast(dest.len))) {
 		-1 => Error.ArrayNotFound,
 		-2 => Error.ArrayOutOfBounds,
 		else => {},
@@ -256,8 +257,8 @@ extern fn libpd_read_array([*]f32, [*:0]const u8, c_uint, c_uint) c_int;
 /// Read values from `src` and write into named dest array starting at an offset.
 ///
 /// Note: performs no bounds checking on `src`.
-pub fn writeArray(name: [:0]const u8, offset: u32, src: []const f32) Error!void {
-	return switch (libpd_write_array(name.ptr, offset, src.ptr, @intCast(src.len))) {
+pub fn writeArray(name: [*:0]const u8, offset: u32, src: []const f32) Error!void {
+	return switch (libpd_write_array(name, offset, src.ptr, @intCast(src.len))) {
 		-1 => Error.ArrayNotFound,
 		-2 => Error.ArrayOutOfBounds,
 		else => {},
@@ -272,10 +273,9 @@ extern fn libpd_write_array([*:0]const u8, c_uint, [*]const f32, c_uint) c_int;
 /// Note: only full-precision when compiled with `PD_FLOATSIZE=64`.
 ///
 /// Double-precision variant of libpd_read_array().
-pub fn readArrayDouble(dest: []f64, name: [:0]const u8, offset: u32) Error!void {
-	return switch (libpd_read_array_double(
-		dest.ptr, name.ptr, offset, @intCast(dest.len)))
-	{
+pub fn readArrayDouble(dest: []f64, name: [*:0]const u8, offset: u32) Error!void {
+	const res = libpd_read_array_double(dest.ptr, name, offset, @intCast(dest.len));
+	return switch (res) {
 		-1 => Error.ArrayNotFound,
 		-2 => Error.ArrayOutOfBounds,
 		else => {},
@@ -290,10 +290,9 @@ extern fn libpd_read_array_double([*]f64, [*:0]const u8, c_uint, c_uint) c_int;
 /// Note: only full-precision when compiled with `PD_FLOATSIZE=64`.
 ///
 /// Double-precision variant of libpd_write_array().
-pub fn writeArrayDouble(name: [:0]const u8, offset: u32, src: []const f64) Error!void {
-	return switch (libpd_write_array_double(
-		name.ptr, offset, src.ptr, @intCast(src.len)))
-	{
+pub fn writeArrayDouble(name: [*:0]const u8, offset: u32, src: []const f64) Error!void {
+	const res = libpd_write_array_double(name, offset, src.ptr, @intCast(src.len));
+	return switch (res) {
 		-1 => Error.ArrayNotFound,
 		-2 => Error.ArrayOutOfBounds,
 		else => {},
@@ -308,8 +307,8 @@ extern fn libpd_write_array_double([*:0]const u8, c_uint, [*]const f64, c_uint) 
 /// Send a bang to a destination receiver.
 ///
 /// Ex: `sendBang("foo")` will send a bang to [s foo] on the next tick.
-pub fn sendBang(recv: [:0]const u8) Error!void {
-	if (libpd_bang(recv.ptr) != 0)
+pub fn sendBang(recv: [*:0]const u8) Error!void {
+	if (libpd_bang(recv) != 0)
 		return Error.ReceiverNotFound;
 }
 extern fn libpd_bang([*:0]const u8) c_int;
@@ -317,8 +316,8 @@ extern fn libpd_bang([*:0]const u8) c_int;
 /// Send a float to a destination receiver.
 ///
 /// Ex: `sendFloat("foo", 1)` will send a 1.0 to [s foo] on the next tick.
-pub fn sendFloat(recv: [:0]const u8, x: f32) Error!void {
-	if (libpd_float(recv.ptr, x) != 0)
+pub fn sendFloat(recv: [*:0]const u8, x: f32) Error!void {
+	if (libpd_float(recv, x) != 0)
 		return Error.ReceiverNotFound;
 }
 extern fn libpd_float([*:0]const u8, f32) c_int;
@@ -328,16 +327,16 @@ extern fn libpd_float([*:0]const u8, f32) c_int;
 /// Ex: `sendDouble("foo", 1.1)` will send a 1.1 to [s foo] on the next tick
 ///
 /// Note: only full-precision when compiled with `PD_FLOATSIZE=64`.
-pub fn sendDouble(recv: [:0]const u8, x: f64) Error!void {
-	if (libpd_double(recv.ptr, x) != 0)
+pub fn sendDouble(recv: [*:0]const u8, x: f64) Error!void {
+	if (libpd_double(recv, x) != 0)
 		return Error.ReceiverNotFound;
 }
 extern fn libpd_double([*:0]const u8, f64) c_int;
 
 /// Send a symbol to a destination receiver.
 /// Ex: `sendSymbol("foo", "bar")` will send "bar" to [s foo] on the next tick.
-pub fn sendSymbol(recv: [:0]const u8, s: [:0]const u8) Error!void {
-	if (libpd_symbol(recv.ptr, s.ptr) != 0)
+pub fn sendSymbol(recv: [*:0]const u8, s: [*:0]const u8) Error!void {
+	if (libpd_symbol(recv, s) != 0)
 		return Error.ReceiverNotFound;
 }
 extern fn libpd_symbol([*:0]const u8, [*:0]const u8) c_int;
@@ -372,9 +371,7 @@ pub const addDouble = libpd_add_double;
 extern fn libpd_add_double(f64) void;
 
 /// add a symbol to the current message in progress
-pub fn addSymbol(s: [:0]const u8) void {
-	libpd_add_symbol(s.ptr);
-}
+pub const addSymbol = libpd_add_symbol;
 extern fn libpd_add_symbol([*:0]const u8) void;
 
 /// Finish current message and send as a list to a destination receiver
@@ -387,8 +384,8 @@ extern fn libpd_add_symbol([*:0]const u8) void;
 ///     addSymbol("bar");
 ///     finishList("foo");
 /// ```
-pub fn finishList(recv: [:0]const u8) Error!void {
-	if (libpd_finish_list(recv.ptr) != 0)
+pub fn finishList(recv: [*:0]const u8) Error!void {
+	if (libpd_finish_list(recv) != 0)
 		return Error.ReceiverNotFound;
 }
 extern fn libpd_finish_list([*:0]const u8) c_int;
@@ -404,8 +401,8 @@ extern fn libpd_finish_list([*:0]const u8) c_int;
 ///     addFloat(1);
 ///     finishMessage("pd", "dsp");
 /// ```
-pub fn finishMessage(recv: [:0]const u8, msg: [:0]const u8) Error!void {
-	if (libpd_finish_message(recv.ptr, msg.ptr) != 0)
+pub fn finishMessage(recv: [*:0]const u8, msg: [*:0]const u8) Error!void {
+	if (libpd_finish_message(recv, msg) != 0)
 		return Error.ReceiverNotFound;
 }
 extern fn libpd_finish_message([*:0]const u8, [*:0]const u8) c_int;
@@ -424,8 +421,8 @@ pub const setDouble = libpd_set_double;
 extern fn libpd_set_double(*pd.Atom, f64) void;
 
 /// Write a symbol value to the given atom.
-pub fn setSymbol(a: *pd.Atom, s: [:0]const u8) void {
-	libpd_set_symbol(a, s.ptr);
+pub fn setSymbol(a: *pd.Atom, s: [*:0]const u8) void {
+	libpd_set_symbol(a, s);
 }
 extern fn libpd_set_symbol(*pd.Atom, [*:0]const u8) void;
 
@@ -439,17 +436,15 @@ extern fn libpd_set_symbol(*pd.Atom, [*:0]const u8) void;
 ///     setSymbol(&v[2], "bar");
 ///     sendList("foo", &v);
 /// ```
-pub fn sendList(recv: [:0]const u8, av: []pd.Atom) Error!void {
-	if (libpd_list(recv.ptr, av.len, av.ptr) != 0)
+pub fn sendList(recv: [*:0]const u8, av: []pd.Atom) Error!void {
+	if (libpd_list(recv, av.len, av.ptr) != 0)
 		return Error.ReceiverNotFound;
 }
 extern fn libpd_list([*:0]const u8, c_uint, [*]pd.Atom) c_int;
 
 
-pub fn sendMessage(
-	recv: [:0]const u8, msg: [:0]const u8, av: []pd.Atom
-) Error!void {
-	if (libpd_message(recv.ptr, msg.ptr, @intCast(av.len), av.ptr) != 0)
+pub fn sendMessage(recv: [*:0]const u8, msg: [*:0]const u8, av: []pd.Atom) Error!void {
+	if (libpd_message(recv, msg, @intCast(av.len), av.ptr) != 0)
 		return Error.ReceiverNotFound;
 }
 extern fn libpd_message([*:0]const u8, [*:0]const u8, c_uint, [*]pd.Atom) c_int;
@@ -463,8 +458,8 @@ extern fn libpd_message([*:0]const u8, [*:0]const u8, c_uint, [*]pd.Atom) c_int;
 /// Ex: `bind("foo")` adds a "virtual" `[r foo]` which forwards messages to
 ///     the libpd message hooks
 /// returns an opaque receiver pointer or NULL on failure
-pub fn bind(recv: [:0]const u8) Error!*anyopaque {
-	return libpd_bind(recv.ptr) orelse Error.Bind;
+pub fn bind(recv: [*:0]const u8) Error!*anyopaque {
+	return libpd_bind(recv) orelse Error.Bind;
 }
 extern fn libpd_bind([*:0]const u8) ?*anyopaque;
 
@@ -473,8 +468,8 @@ pub const unbind = libpd_unbind;
 extern fn libpd_unbind(*anyopaque) void;
 
 /// check if a source receiver object exists with a given name
-pub fn exists(recv: [:0]const u8) bool {
-	return (libpd_exists(recv.ptr) != 0);
+pub fn exists(recv: [*:0]const u8) bool {
+	return (libpd_exists(recv) != 0);
 }
 extern fn libpd_exists([*:0]const u8) c_int;
 
@@ -587,10 +582,7 @@ pub const getDouble = libpd_get_double;
 extern fn libpd_get_double(*pd.Atom) f64;
 
 /// Returns the symbol value of an atom.
-pub fn getSymbol(a: *pd.Atom) [:0]const u8 {
-	const s = libpd_get_symbol(a);
-	return s[0..std.mem.len(s)];
-}
+pub const getSymbol = libpd_get_symbol;
 extern fn libpd_get_symbol(*pd.Atom) [*:0]const u8;
 
 
@@ -764,8 +756,8 @@ pub extern fn libpd_set_midibytehook(MidiByteHook) void;
 /// Open the current patches within a pd vanilla GUI.
 /// Requires the path to pd's main folder that contains bin/, tcl/, etc.
 /// For a macOS .app bundle: /path/to/Pd-#.#-#.app/Contents/Resources.
-pub fn startGui(path: [:0]const u8) Error!void {
-	if (libpd_start_gui(path.ptr) != 0)
+pub fn startGui(path: [*:0]const u8) Error!void {
+	if (libpd_start_gui(path) != 0)
 		return Error.StartGui;
 }
 extern fn libpd_start_gui([*:0]const u8) c_int;

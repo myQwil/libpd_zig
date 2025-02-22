@@ -8,7 +8,7 @@ packaged for [Zig](https://ziglang.org/).
 First, update your `build.zig.zon`:
 
 ```
-zig fetch --save git+https://github.com/myQwil/libpd_zig#v0.1.3
+zig fetch --save git+https://github.com/myQwil/libpd_zig#v0.1.4
 ```
 
 Next, add this snippet to your `build.zig` script:

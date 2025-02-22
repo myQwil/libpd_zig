@@ -1,0 +1,20 @@
+.{
+	.name = "pdtest",
+	.version = "0.1.0",
+	.minimum_zig_version = "0.14.0-dev.3026+c225b780e",
+	.dependencies = .{
+		.libpd_zig = .{
+			.path = "../.."
+		},
+		.raylib_zig = .{
+			.url = "git+https://github.com/myQwil/raylib-zig#900dc4adcd10667934449124869239540a2ebcd3",
+			.hash = "1220c5c8e0404a1bf7d3e12124485742629de8366656f989aa041477b66e7dd34076"
+		},
+	},
+	.paths = .{
+		"pd",
+		"src",
+		"build.zig",
+		"build.zig.zon",
+	},
+}

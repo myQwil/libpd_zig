@@ -1,6 +1,6 @@
 .{
 	.name = "libpd_zig",
-	.version = "0.1.3",
+	.version = "0.1.4",
 	.minimum_zig_version = "0.14.0-dev.3026+c225b780e",
 	.dependencies = .{
 		.pure_data = .{
@@ -9,7 +9,7 @@
 		},
 		.pd_module = .{
 			.url = "git+https://github.com/myQwil/pd_module#v0.1.9",
-			.hash = "12207fc7226e8d33810a8e0370a00ad2a3bcb8fcb79b487ec40a076363381e6f43bf",
+			.hash = "1220977476612a437d46d1ea4b32e73a0b167b40e6dfb088cb6fb440834436b443ab",
 		},
 	},
 	.paths = .{

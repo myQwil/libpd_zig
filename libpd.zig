@@ -27,8 +27,6 @@ const Error = error {
 // -----------------------------------------------------------------------------
 
 pub const Base = struct {
-	const Self = @This();
-
 	queued: bool,
 
 	/// Initialize Pd and set up the audio processing.
@@ -39,7 +37,7 @@ pub const Base = struct {
 		out_channels: u32,
 		sample_rate: u32,
 		is_queued: bool,
-	) Error!Self {
+	) Error!Base {
 		if (is_queued) {
 			switch (libpd_queued_init()) {
 				-1 => return Error.AlreadyInitialized,
@@ -56,7 +54,7 @@ pub const Base = struct {
 		}
 		if (libpd_init_audio(in_channels, out_channels, sample_rate) != 0)
 			return Error.InitAudio;
-		return Self{ .queued = is_queued };
+		return Base{ .queued = is_queued };
 	}
 	extern fn libpd_init() c_int;
 	extern fn libpd_queued_init() c_int;
@@ -71,7 +69,7 @@ pub const Base = struct {
 	}
 
 	/// Free the ring buffer if we're using it
-	pub fn close(self: *const Self) void {
+	pub fn close(self: *const Base) void {
 		computeAudio(false);
 		if (self.queued) {
 			libpd_queued_release();
@@ -98,16 +96,14 @@ extern fn libpd_add_to_search_path([*:0]const u8) void;
 // -----------------------------------------------------------------------------
 
 pub const Patch = struct {
-	const Self = @This();
-
 	/// Patch handle pointer.
 	handle: *anyopaque,
 	/// Unique $0 patch ID
 	dollar_zero: u32,
 
 	/// Open a patch by filename and parent dir path.
-	pub fn fromFile(name: [*:0]const u8, dir: [*:0]const u8) Error!Self {
-		return if (libpd_openfile(name, dir)) |file| Self{
+	pub fn fromFile(name: [*:0]const u8, dir: [*:0]const u8) Error!Patch {
+		return if (libpd_openfile(name, dir)) |file| Patch{
 			.handle = file,
 			.dollar_zero = @intCast(libpd_getdollarzero(file)),
 		} else Error.OpenFile;
@@ -116,7 +112,7 @@ pub const Patch = struct {
 	extern fn libpd_getdollarzero(*anyopaque) c_int;
 
 	/// Close a patch by patch handle pointer.
-	pub fn close(self: *const Self) void {
+	pub fn close(self: *const Patch) void {
 		libpd_closefile(self.handle);
 	}
 	extern fn libpd_closefile(*anyopaque) void;

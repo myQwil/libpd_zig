@@ -1,6 +1,6 @@
 .{
 	.name = "libpd_zig",
-	.version = "0.1.4",
+	.version = "0.1.5",
 	.minimum_zig_version = "0.14.0-dev.3026+c225b780e",
 	.dependencies = .{
 		.pure_data = .{

@@ -3,19 +3,17 @@ const pd = @import("pd");
 const rl = @import("raylib");
 
 const Slope = struct {
-	const Self = @This();
-
 	m: f32,
 	b: f32,
 
-	fn new(min: f32, max: f32, run: f32) Self {
-		return Self{
+	fn new(min: f32, max: f32, run: f32) Slope {
+		return Slope{
 			.m = (max - min) / run,
 			.b = min,
 		};
 	}
 
-	fn at(self: *const Self, x: f32) f32 {
+	fn at(self: *const Slope, x: f32) f32 {
 		return self.m * x + self.b;
 	}
 };
@@ -25,8 +23,6 @@ fn AudioController(
 	bit_depth: u32,
 	channels: u32,
 ) type { return struct {
-	const Self = @This();
-
 	/// handles freeing of the ring buffer, if in queued mode
 	base: pd.Base,
 	/// raylib audio stream
@@ -65,7 +61,7 @@ fn AudioController(
 		rl.traceLog(.info, "%s: %g", .{ recv, f });
 	}
 
-	fn init() !Self {
+	fn init() !AudioController {
 		rl.initAudioDevice();
 		errdefer rl.closeAudioDevice();
 
@@ -95,14 +91,14 @@ fn AudioController(
 		// audio processing on
 		pd.computeAudio(true);
 
-		return Self{
+		return AudioController{
 			.base = base,
 			.stream = stream,
 			.rec_tozig = rec_tozig,
 		};
 	}
 
-	fn close(self: *const Self) void {
+	fn close(self: *const AudioController) void {
 		self.base.close();
 		pd.unbind(self.rec_tozig);
 

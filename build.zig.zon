@@ -1,15 +1,16 @@
 .{
-	.name = "libpd_zig",
-	.version = "0.1.5",
-	.minimum_zig_version = "0.14.0-dev.3026+c225b780e",
+	.name = .libpd,
+	.version = "0.1.6",
+	.fingerprint = 0xf27d162194cea9f1,
+	.minimum_zig_version = "0.14.0",
 	.dependencies = .{
 		.pure_data = .{
 			.url = "git+https://github.com/pure-data/pure-data#0.55-2",
-			.hash = "1220a7a91eee95625dba0cb78e35857737fbc2be794ee5fe632af4e55daf5e88bdf3",
+			.hash = "N-V-__8AAHJlYQGnqR7ulWJdugy3jjWFdzf7wr55TuX-Yyr0",
 		},
 		.pd_module = .{
-			.url = "git+https://github.com/myQwil/pd_module#v0.1.9",
-			.hash = "1220977476612a437d46d1ea4b32e73a0b167b40e6dfb088cb6fb440834436b443ab",
+			.url = "git+https://github.com/myQwil/pd_module#e2a5c08e1f6f19cf5e54c69ef1be05fde796f727",
+			.hash = "pd_module-0.1.11-NhzzybAmAQA_KZSy6eBXCB2oFSrqG03chF9aCv2u-i6F",
 		},
 	},
 	.paths = .{

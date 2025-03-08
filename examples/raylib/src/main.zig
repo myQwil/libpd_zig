@@ -23,6 +23,8 @@ fn AudioController(
 	bit_depth: u32,
 	channels: u32,
 ) type { return struct {
+	const Self = @This();
+
 	/// handles freeing of the ring buffer, if in queued mode
 	base: pd.Base,
 	/// raylib audio stream
@@ -61,7 +63,7 @@ fn AudioController(
 		rl.traceLog(.info, "%s: %g", .{ recv, f });
 	}
 
-	fn init() !AudioController {
+	fn init() !Self {
 		rl.initAudioDevice();
 		errdefer rl.closeAudioDevice();
 
@@ -91,14 +93,14 @@ fn AudioController(
 		// audio processing on
 		pd.computeAudio(true);
 
-		return AudioController{
+		return Self{
 			.base = base,
 			.stream = stream,
 			.rec_tozig = rec_tozig,
 		};
 	}
 
-	fn close(self: *const AudioController) void {
+	fn close(self: *const Self) void {
 		self.base.close();
 		pd.unbind(self.rec_tozig);
 

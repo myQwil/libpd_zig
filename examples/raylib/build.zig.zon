@@ -1,14 +1,15 @@
 .{
-	.name = "pdtest",
+	.name = .pd_test,
 	.version = "0.1.0",
-	.minimum_zig_version = "0.14.0-dev.3026+c225b780e",
+	.fingerprint = 0xa119bb1346b86446,
+	.minimum_zig_version = "0.14.0",
 	.dependencies = .{
 		.libpd_zig = .{
 			.path = "../.."
 		},
 		.raylib_zig = .{
-			.url = "git+https://github.com/myQwil/raylib-zig#900dc4adcd10667934449124869239540a2ebcd3",
-			.hash = "1220c5c8e0404a1bf7d3e12124485742629de8366656f989aa041477b66e7dd34076"
+			.url = "git+https://github.com/myQwil/raylib-zig#5bbafa4f86eb3e3f41a107bbec6b8822e0f87c93",
+			.hash = "raylib_zig-5.6.0-dev-KE8REE0uBQD5Lzuc6qSZPtE5li3iPyU4iGQEMPqOPI11"
 		},
 	},
 	.paths = .{

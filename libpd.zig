@@ -33,9 +33,9 @@ pub const Base = struct {
 	/// Note: sets `SIGFPE` handler to keep bad pd patches from crashing due to divide
 	/// by 0, set any custom handling after calling this function.
 	pub fn init(
-		in_channels: u32,
-		out_channels: u32,
-		sample_rate: u32,
+		in_channels: c_uint,
+		out_channels: c_uint,
+		sample_rate: c_uint,
 		is_queued: bool,
 	) Error!Base {
 		if (is_queued) {
@@ -99,17 +99,17 @@ pub const Patch = struct {
 	/// Patch handle pointer.
 	handle: *anyopaque,
 	/// Unique $0 patch ID
-	dollar_zero: u32,
+	dollar_zero: c_uint,
 
 	/// Open a patch by filename and parent dir path.
 	pub fn fromFile(name: [*:0]const u8, dir: [*:0]const u8) Error!Patch {
 		return if (libpd_openfile(name, dir)) |file| Patch{
 			.handle = file,
-			.dollar_zero = @intCast(libpd_getdollarzero(file)),
+			.dollar_zero = libpd_getdollarzero(file),
 		} else Error.OpenFile;
 	}
 	extern fn libpd_openfile([*:0]const u8, [*:0]const u8) ?*anyopaque;
-	extern fn libpd_getdollarzero(*anyopaque) c_int;
+	extern fn libpd_getdollarzero(*anyopaque) c_uint;
 
 	/// Close a patch by patch handle pointer.
 	pub fn close(self: *const Patch) void {
@@ -129,17 +129,17 @@ pub fn computeAudio(state: bool) void {
 }
 
 /// Return pd's fixed block size: the number of sample frames per 1 pd tick.
-pub fn blockSize() u32 {
-	return @intCast(libpd_blocksize());
-}
-extern fn libpd_blocksize() c_int;
+pub const blockSize = libpd_blocksize;
+extern fn libpd_blocksize() c_uint;
 
 /// Process interleaved float samples from inBuffer -> libpd -> outBuffer
 ///
 /// Buffer sizes are based on # of ticks and channels where:
 ///     `size = ticks * libpd_blocksize() * (in/out)channels`.
 pub fn processFloat(
-	ticks: u32, in_buffer: ?[*]const f32, out_buffer: ?[*]f32
+	ticks: c_uint,
+	in_buffer: ?[*]const f32,
+	out_buffer: ?[*]f32,
 ) Error!void {
 	if (libpd_process_float(ticks, in_buffer, out_buffer) != 0)
 		return Error.ProcessFloat;
@@ -156,7 +156,9 @@ extern fn libpd_process_float(c_uint, ?[*]const f32, ?[*]f32) c_int;
 ///
 /// Note: for efficiency, does *not* clip input
 pub fn processShort(
-	ticks: u32, in_buffer: ?[*]const i16, out_buffer: ?[*]i16
+	ticks: c_uint,
+	in_buffer: ?[*]const i16,
+	out_buffer: ?[*]i16,
 ) Error!void {
 	if (libpd_process_short(ticks, in_buffer, out_buffer) != 0)
 		return Error.ProcessShort;
@@ -170,7 +172,9 @@ extern fn libpd_process_short(c_uint, ?[*]const c_short, ?[*]c_short) c_int;
 ///
 /// Note: only full-precision when compiled with `PD_FLOATSIZE=64`
 pub fn processDouble(
-	ticks: u32, in_buffer: ?[*]const f64, out_buffer: ?[*]f64
+	ticks: c_uint,
+	in_buffer: ?[*]const f64,
+	out_buffer: ?[*]f64,
 ) Error!void {
 	if (libpd_process_short(ticks, in_buffer, out_buffer) != 0)
 		return Error.ProcessDouble;
@@ -225,23 +229,23 @@ extern fn libpd_process_raw_double(?[*]const f64, ?[*]f64) c_int;
 // -----------------------------------------------------------------------------
 
 /// Get the size of an array by name.
-pub fn arraySize(name: [*:0]const u8) Error!u32 {
-	if (libpd_arraysize(name) < 0)
-		return Error.ArrayNotFound;
+pub fn arraySize(name: [*:0]const u8) Error!c_uint {
+	const size = libpd_arraysize(name);
+	return if (size < 0) Error.ArrayNotFound else @intCast(size);
 }
 extern fn libpd_arraysize([*:0]const u8) c_int;
 
 /// (re)size an array by name; sizes <= 0 are clipped to 1.
-pub fn resizeArray(name: [*:0]const u8, size: usize) Error!void {
-	if (libpd_resize_array(name, @intCast(size)) != 0)
+pub fn resizeArray(name: [*:0]const u8, size: c_ulong) Error!void {
+	if (libpd_resize_array(name, size) != 0)
 		return Error.ArrayNotFound;
 }
-extern fn libpd_resize_array([*:0]const u8, c_long) c_int;
+extern fn libpd_resize_array([*:0]const u8, c_ulong) c_int;
 
 /// Read values from named src array and write into `dest` starting at an offset.
 ///
 /// Note: performs no bounds checking on `dest`.
-pub fn readArray(dest: []f32, name: [*:0]const u8, offset: u32) Error!void {
+pub fn readArray(dest: []f32, name: [*:0]const u8, offset: c_uint) Error!void {
 	return switch (libpd_read_array(dest.ptr, name, offset, @intCast(dest.len))) {
 		-1 => Error.ArrayNotFound,
 		-2 => Error.ArrayOutOfBounds,
@@ -253,7 +257,7 @@ extern fn libpd_read_array([*]f32, [*:0]const u8, c_uint, c_uint) c_int;
 /// Read values from `src` and write into named dest array starting at an offset.
 ///
 /// Note: performs no bounds checking on `src`.
-pub fn writeArray(name: [*:0]const u8, offset: u32, src: []const f32) Error!void {
+pub fn writeArray(name: [*:0]const u8, offset: c_uint, src: []const f32) Error!void {
 	return switch (libpd_write_array(name, offset, src.ptr, @intCast(src.len))) {
 		-1 => Error.ArrayNotFound,
 		-2 => Error.ArrayOutOfBounds,
@@ -269,7 +273,7 @@ extern fn libpd_write_array([*:0]const u8, c_uint, [*]const f32, c_uint) c_int;
 /// Note: only full-precision when compiled with `PD_FLOATSIZE=64`.
 ///
 /// Double-precision variant of libpd_read_array().
-pub fn readArrayDouble(dest: []f64, name: [*:0]const u8, offset: u32) Error!void {
+pub fn readArrayDouble(dest: []f64, name: [*:0]const u8, offset: c_uint) Error!void {
 	const res = libpd_read_array_double(dest.ptr, name, offset, @intCast(dest.len));
 	return switch (res) {
 		-1 => Error.ArrayNotFound,
@@ -286,7 +290,7 @@ extern fn libpd_read_array_double([*]f64, [*:0]const u8, c_uint, c_uint) c_int;
 /// Note: only full-precision when compiled with `PD_FLOATSIZE=64`.
 ///
 /// Double-precision variant of libpd_write_array().
-pub fn writeArrayDouble(name: [*:0]const u8, offset: u32, src: []const f64) Error!void {
+pub fn writeArrayDouble(name: [*:0]const u8, offset: c_uint, src: []const f64) Error!void {
 	const res = libpd_write_array_double(name, offset, src.ptr, @intCast(src.len));
 	return switch (res) {
 		-1 => Error.ArrayNotFound,
@@ -345,8 +349,8 @@ extern fn libpd_symbol([*:0]const u8, [*:0]const u8) c_int;
 /// Messages can be of a smaller length as max length is only an upper bound.
 ///
 /// Note: no cleanup is required for unfinished messages.
-pub fn startMessage(maxlen: u32) Error!void {
-	if (libpd_start_message(@intCast(maxlen)) != 0)
+pub fn startMessage(maxlen: c_uint) Error!void {
+	if (libpd_start_message(maxlen) != 0)
 		return Error.MessageTooLong;
 }
 extern fn libpd_start_message(maxlen: c_uint) c_int;
@@ -589,24 +593,24 @@ extern fn libpd_get_symbol(*pd.Atom) [*:0]const u8;
 /// Channel is 0-indexed, pitch is 0-127, and velocity is 0-127.
 /// Channels encode MIDI ports via: libpd_channel = pd_channel + 16 * pd_port.
 /// Note: there is no note off message, send a note on with velocity = 0 instead.
-pub fn sendNoteOn(channel: u32, pitch: u7, velocity: u7) void {
-	_ = libpd_noteon(@intCast(channel), @intCast(pitch), @intCast(velocity));
+pub fn sendNoteOn(channel: c_uint, pitch: u7, velocity: u7) void {
+	_ = libpd_noteon(channel, @intCast(pitch), @intCast(velocity));
 }
 extern fn libpd_noteon(channel: c_uint, pitch: c_uint, velocity: c_uint) c_int;
 
 /// Send a MIDI control change message to [ctlin] objects.
 /// Channel is 0-indexed, controller is 0-127, and value is 0-127.
 /// Channels encode MIDI ports via: libpd_channel = pd_channel + 16 * pd_port.
-pub fn sendControlChange(channel: u32, controller: u7, value: u7) void {
-	_ = libpd_controlchange(@intCast(channel), @intCast(controller), @intCast(value));
+pub fn sendControlChange(channel: c_uint, controller: u7, value: u7) void {
+	_ = libpd_controlchange(channel, @intCast(controller), @intCast(value));
 }
 extern fn libpd_controlchange(channel: c_uint, controller: c_uint, value: c_uint) c_int;
 
 /// Send a MIDI program change message to [pgmin] objects.
 /// Channel is 0-indexed and value is 0-127.
 /// Channels encode MIDI ports via: libpd_channel = pd_channel + 16 * pd_port.
-pub fn sendProgramChange(channel: u32, value: u7) void {
-	_ = libpd_programchange(@intCast(channel), @intCast(value));
+pub fn sendProgramChange(channel: c_uint, value: u7) void {
+	_ = libpd_programchange(channel, @intCast(value));
 }
 extern fn libpd_programchange(channel: c_uint, value: c_uint) c_int;
 
@@ -614,24 +618,24 @@ extern fn libpd_programchange(channel: c_uint, value: c_uint) c_int;
 /// Channel is 0-indexed and value is -8192-8192.
 /// Channels encode MIDI ports via: libpd_channel = pd_channel + 16 * pd_port.
 /// Note: [bendin] outputs 0-16383 while [bendout] accepts -8192-8192.
-pub fn sendPitchBend(channel: u32, value: i14) void {
-	_ = libpd_pitchbend(@intCast(channel), @intCast(value));
+pub fn sendPitchBend(channel: c_uint, value: i14) void {
+	_ = libpd_pitchbend(channel, @intCast(value));
 }
 extern fn libpd_pitchbend(channel: c_uint, value: c_int) c_int;
 
 /// Send a MIDI after touch message to [touchin] objects.
 /// Channel is 0-indexed and value is 0-127.
 /// Channels encode MIDI ports via: libpd_channel = pd_channel + 16 * pd_port.
-pub fn sendAftertouch(channel: u32, value: u7) void {
-	_ = libpd_aftertouch(@intCast(channel), @intCast(value));
+pub fn sendAftertouch(channel: c_uint, value: u7) void {
+	_ = libpd_aftertouch(channel, @intCast(value));
 }
 extern fn libpd_aftertouch(channel: c_uint, value: c_uint) c_int;
 
 /// Send a MIDI poly after touch message to [polytouchin] objects.
 /// Channel is 0-indexed, pitch is 0-127, and value is 0-127.
 /// Channels encode MIDI ports via: libpd_channel = pd_channel + 16 * pd_port.
-pub fn sendPolyAftertouch(channel: u32, pitch: u7, value: u7) void {
-	_ = libpd_polyaftertouch(@intCast(channel), @intCast(pitch), @intCast(value));
+pub fn sendPolyAftertouch(channel: c_uint, pitch: u7, value: u7) void {
+	_ = libpd_polyaftertouch(channel, @intCast(pitch), @intCast(value));
 }
 extern fn libpd_polyaftertouch(channel: c_uint, pitch: c_uint, value: c_uint) c_int;
 
@@ -806,9 +810,7 @@ extern fn libpd_main_instance() *pd.Instance;
 
 /// get the number of pd instances, including the main instance
 /// returns number or 1 when libpd is not compiled with PDINSTANCE
-pub fn numInstances() u32 {
-	return libpd_num_instances();
-}
+pub const numInstances = libpd_num_instances;
 extern fn libpd_num_instances() c_uint;
 
 /// per-instance data free hook signature

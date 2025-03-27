@@ -1,0 +1,25 @@
+name: Zig Build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+
+    runs-on: ${{ matrix.os }}
+
+    name: Build on ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v1
+
+      - name: Build static library
+        run: zig build -Dlinkage=static
+
+      - name: Build shared library
+        run: zig build -Dlinkage=dynamic

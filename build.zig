@@ -123,7 +123,6 @@ pub fn build(b: *std.Build) !void {
 			lib.root_module.addCMacro("_DARWIN_C_SOURCE", "1");
 			lib.root_module.addCMacro("_DARWIN_UNLIMITED_SELECT", "1");
 			lib.root_module.addCMacro("FD_SETSIZE", "10240");
-			lib.linkSystemLibrary("dynamiclib");
 			lib.linkSystemLibrary("dl");
 		},
 		.emscripten, .wasi => {

@@ -1,5 +1,5 @@
 const std = @import("std");
-const pd = @import("pd");
+const pd = @import("libpd");
 const rl = @import("raylib");
 
 const Slope = struct {
@@ -18,11 +18,7 @@ const Slope = struct {
 	}
 };
 
-fn AudioController(
-	sample_rate: u32,
-	bit_depth: u32,
-	channels: u32,
-) type { return struct {
+fn AudioController(channels: u32) type { return struct {
 	const Self = @This();
 
 	/// handles freeing of the ring buffer, if in queued mode
@@ -63,7 +59,7 @@ fn AudioController(
 		rl.traceLog(.info, "%s: %g", .{ recv, f });
 	}
 
-	fn init() !Self {
+	fn init(sample_rate: u32, bit_depth: u32) !Self {
 		rl.initAudioDevice();
 		errdefer rl.closeAudioDevice();
 
@@ -77,7 +73,9 @@ fn AudioController(
 		rl.playAudioStream(stream);
 
 		// Pd initialization
-		const base = try pd.Base.init(0, channels, sample_rate, false);
+		const base: pd.Base = try .init(
+			0, @intCast(channels), @intCast(sample_rate), false,
+		);
 		errdefer base.close();
 
 		// subscribe to receive source
@@ -110,6 +108,24 @@ fn AudioController(
 	}
 };}
 
+const Line = struct {
+	start: rl.Vector2,
+	end: rl.Vector2,
+	color: rl.Color,
+
+	fn new(x1: f32, y1: f32, x2: f32, y2: f32, color: rl.Color) Line {
+		return .{
+			.start = .{ .x = x1, .y = y1 },
+			.end   = .{ .x = x2, .y = y2 },
+			.color = color,
+		};
+	}
+
+	fn draw(self: *const Line) void {
+		rl.drawLineV(self.start, self.end, self.color);
+	}
+};
+
 fn sendBang(dest: [*:0]const u8) void {
 	pd.sendBang(dest) catch rl.traceLog(.warning, "couldn't find `%s`", .{ dest });
 }
@@ -121,29 +137,53 @@ fn sendFloat(dest: [*:0]const u8, f: f32) void {
 pub fn main() !void {
 	//---------------------------------------------------------------------------
 	// Initialization
-	const screenWidth = 800;
-	const screenHeight = 450;
+	const screenWidth = 700;
+	const screenHeight = 700;
 	rl.initWindow(screenWidth, screenHeight,
 		"raylib-zig [core] example - libpd audio streaming");
 	defer rl.closeWindow();
 
-	const audio = try AudioController(48000, 16, 2).init();
+	const audio: AudioController(2) = try .init(48000, 16);
 	defer audio.close();
 
-	const patch = try pd.Patch.fromFile("test.pd", "./pd");
+	const patch: pd.Patch = try .fromFile("test.pd", "./pd");
 	defer patch.close();
 
 	rl.setTargetFPS(30); // Set our game to run at 30 frames-per-second
 
-	const freq = Slope.new(0, 300, screenWidth);
-	const idx = Slope.new(3200, 0, screenHeight);
+	const pan: Slope = .new(-1, 1, screenWidth);
+	const freq: Slope = .new(0, 300, screenWidth);
+	const tone: Slope = .new(100, 5, screenHeight);
+	const idx: Slope = .new(3200, 0, screenHeight);
+	var carrier: f32 = 400;
 
-	const s_tone = try std.fmt.allocPrintZ(rl.mem, "{d}tone", .{ patch.dollar_zero });
-	defer rl.mem.free(s_tone);
+	const s_pan = try std.fmt.allocPrintZ(rl.mem, "{d}pan", .{ patch.dollar_zero });
+	defer rl.mem.free(s_pan);
 	const s_freq = try std.fmt.allocPrintZ(rl.mem, "{d}freq", .{ patch.dollar_zero });
 	defer rl.mem.free(s_freq);
+	const s_tone = try std.fmt.allocPrintZ(rl.mem, "{d}tone", .{ patch.dollar_zero });
+	defer rl.mem.free(s_tone);
 	const s_idx = try std.fmt.allocPrintZ(rl.mem, "{d}idx", .{ patch.dollar_zero });
 	defer rl.mem.free(s_idx);
+	const s_car = try std.fmt.allocPrintZ(rl.mem, "{d}car", .{ patch.dollar_zero });
+	defer rl.mem.free(s_car);
+
+	const grid = blk: {
+		const rows = 8.0;
+		const lines = (rows - 1) * 2;
+		var gl: [lines]Line = undefined;
+		const inc: f32 = 1.0 / rows;
+		var f = inc;
+		var i: u32 = 0;
+		while (i < lines) : ({f += inc; i += 2;}) {
+			const wi: f32 = screenWidth * f;
+			const hi: f32 = screenHeight * f;
+			gl[i]     = .new(wi, 0,  wi,          screenHeight, .dark_gray);
+			gl[i + 1] = .new(0,  hi, screenWidth, hi,           .dark_gray);
+		}
+		break :blk gl;
+	};
+
 
 	//---------------------------------------------------------------------------
 	// Main game loop
@@ -151,13 +191,19 @@ pub fn main() !void {
 		//------------------------------------------------------------------------
 		// Update
 		if (rl.isMouseButtonDown(.left)) {
-			rl.drawText("mouse1", screenWidth - 220, 10, 20, rl.Color.dark_green);
 			const m_pos = rl.getMousePosition();
 			sendFloat(s_freq.ptr, freq.at(m_pos.x));
 			sendFloat(s_idx.ptr, idx.at(m_pos.y));
 		}
 		if (rl.isMouseButtonPressed(.right)) {
-			sendBang(s_tone.ptr);
+			const m_pos = rl.getMousePosition();
+			sendFloat(s_pan.ptr, pan.at(m_pos.x));
+			sendFloat(s_tone.ptr, tone.at(m_pos.y));
+		}
+		const wheel = rl.getMouseWheelMove();
+		if (wheel != 0) {
+			carrier *= @exp2(wheel / 12);
+			sendFloat(s_car.ptr, carrier);
 		}
 
 		//------------------------------------------------------------------------
@@ -165,10 +211,17 @@ pub fn main() !void {
 		rl.beginDrawing();
 		defer rl.endDrawing();
 
-		if (rl.isMouseButtonDown(.right)) {
-			rl.drawText("mouse2", screenWidth - 120, 10, 20, rl.Color.red);
+		rl.clearBackground(.black);
+
+		for (&grid) |*g| {
+			g.draw();
 		}
 
-		rl.clearBackground(rl.Color.ray_white);
+		if (rl.isMouseButtonDown(.left)) {
+			rl.drawText("mouse1", screenWidth - 220, 10, 20, .red);
+		}
+		if (rl.isMouseButtonDown(.right)) {
+			rl.drawText("mouse2", screenWidth - 120, 10, 20, .green);
+		}
 	}
 }

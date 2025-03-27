@@ -9,8 +9,8 @@
 			.hash = "N-V-__8AAHJlYQGnqR7ulWJdugy3jjWFdzf7wr55TuX-Yyr0",
 		},
 		.pd_module = .{
-			.url = "git+https://github.com/myQwil/pd_module#e2a5c08e1f6f19cf5e54c69ef1be05fde796f727",
-			.hash = "pd_module-0.1.11-NhzzybAmAQA_KZSy6eBXCB2oFSrqG03chF9aCv2u-i6F",
+			.url = "git+https://github.com/myQwil/pd_module#v0.1.14",
+			.hash = "pd_module-0.1.14-NhzzyWghAQAGmL3xzqyb4yk9WK5lhFazZerR8MPoXQ-L",
 		},
 	},
 	.paths = .{

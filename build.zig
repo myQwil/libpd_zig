@@ -1,7 +1,7 @@
 const std = @import("std");
 const LinkMode = std.builtin.LinkMode;
 
-pub const Options = struct {
+const Options = struct {
 	util: bool = true,
 	extra: bool = true,
 	multi: bool = false,
@@ -13,28 +13,29 @@ pub fn build(b: *std.Build) !void {
 	const target = b.standardTargetOptions(.{});
 	const optimize = b.standardOptimizeOption(.{});
 
-	const defaults = Options{};
-	const opt = Options{
+	const default: Options = .{};
+	const opt: Options = .{
 		.util = b.option(bool, "util", "compile utilities in `libpd_wrapper/util` (default)")
-			orelse defaults.util,
+			orelse default.util,
 		.extra = b.option(bool, "extra", "compile `pure-data/extra` externals which are then inited in libpd_init() (default)")
-			orelse defaults.extra,
+			orelse default.extra,
 		.multi = b.option(bool, "multi", "compile with multiple instance support")
-			orelse defaults.multi,
+			orelse default.multi,
 		.double = b.option(bool, "double", "compile with double-precision support")
-			orelse defaults.double,
+			orelse default.double,
 		.linkage = b.option(LinkMode, "linkage", "Library linking method")
-			orelse defaults.linkage,
+			orelse default.linkage,
 	};
 
+	const lib_mod = b.createModule(.{
+		.target = target,
+		.optimize = optimize,
+		.link_libc = true,
+	});
 	const lib = b.addLibrary(.{
 		.name = "pd",
 		.linkage = opt.linkage,
-		.root_module = b.createModule(.{
-			.target = target,
-			.optimize = optimize,
-			.link_libc = true,
-		}),
+		.root_module = lib_mod,
 	});
 
 	const pd_dep = b.dependency("pure_data", .{
@@ -43,109 +44,83 @@ pub fn build(b: *std.Build) !void {
 	});
 	lib.addIncludePath(pd_dep.path("src"));
 
-	var files = std.ArrayList([]const u8).init(b.allocator);
+	var files: std.ArrayList([]const u8) = .init(b.allocator);
 	defer files.deinit();
-	for ([_][]const u8{
-		"d_arithmetic", "d_array", "d_ctl", "d_dac", "d_delay", "d_fft",
-		"d_fft_fftsg", "d_filter", "d_global", "d_math", "d_misc", "d_osc",
-		"d_resample", "d_soundfile", "d_soundfile_aiff", "d_soundfile_caf",
-		"d_soundfile_next", "d_soundfile_wave", "d_ugen",
-		"g_all_guis", "g_array", "g_bang", "g_canvas", "g_clone", "g_editor",
-		"g_editor_extras", "g_graph", "g_guiconnect", "g_io", "g_mycanvas",
-		"g_numbox", "g_radio", "g_readwrite", "g_rtext", "g_scalar",
-		"g_slider", "g_template", "g_text", "g_toggle", "g_traversal",
-		"g_undo", "g_vumeter",
-		"m_atom", "m_binbuf", "m_class", "m_conf", "m_glob", "m_memory",
-		"m_obj", "m_pd", "m_sched",
-		"s_audio", "s_audio_dummy", "s_inter", "s_inter_gui", "s_loader",
-		"s_main", "s_net", "s_path", "s_print", "s_utf8",
-		"x_acoustics", "x_arithmetic", "x_array", "x_connective", "x_file",
-		"x_gui", "x_interface", "x_list", "x_midi", "x_misc", "x_net",
-		"x_scalar", "x_text", "x_time", "x_vexp", "x_vexp_if", "x_vexp_fun",
-		"s_libpdmidi", "x_libpdreceive", "z_hooks", "z_libpd",
-	}) |s| {
-		try files.append(b.fmt("{s}{s}.c", .{ "src/", s }));
-	}
-
+	try files.appendSlice(&sources);
 	if (opt.extra) {
-		for ([_][]const u8{
-			"bob~", "bonk~", "choice", "fiddle~", "loop~", "lrshift~", "pique", "pd~",
-			"sigmund~", "stdout",
-		}) |s| {
-			try files.append(b.fmt("{s}{s}/{s}.c", .{ "extra/", s, s }));
-		}
-		try files.append("extra/pd~/pdsched.c");
-		lib.root_module.addCMacro("LIBPD_EXTRA", "1");
+		try files.appendSlice(&extra_sources);
 	}
-
 	if (opt.util) {
-		for ([_][]const u8{ "z_print_util", "z_queued", "z_ringbuffer" }) |s| {
-			try files.append(b.fmt("{s}{s}.c", .{ "src/", s }));
-		}
+		try files.appendSlice(&util_sources);
 	}
 
-	lib.root_module.addCMacro("PD", "1");
-	lib.root_module.addCMacro("PD_INTERNAL", "1");
-	lib.root_module.addCMacro("USEAPI_DUMMY", "1");
-	lib.root_module.addCMacro("HAVE_UNISTD_H", "1");
-
-	if (opt.multi) {
-		lib.root_module.addCMacro("PDINSTANCE", "1");
-		lib.root_module.addCMacro("PDTHREADS", "1");
-	}
-
-	if (opt.double) {
-		lib.root_module.addCMacro("PD_FLOATSIZE", "64");
-	}
-
-	var flags = std.ArrayList([]const u8).init(b.allocator);
+	var flags: std.ArrayList([]const u8) = .init(b.allocator);
 	defer flags.deinit();
 	try flags.append("-fno-sanitize=undefined");
 	if (optimize != .Debug) {
 		try flags.appendSlice(&.{
-			"-ffast-math", "-funroll-loops", "-fomit-frame-pointer", "-Wno-error=date-time",
+			"-ffast-math",
+			"-funroll-loops",
+			"-fomit-frame-pointer",
+			"-Wno-error=date-time",
 		});
+	}
+
+	lib_mod.addCMacro("PD", "1");
+	lib_mod.addCMacro("PD_INTERNAL", "1");
+	lib_mod.addCMacro("USEAPI_DUMMY", "1");
+	lib_mod.addCMacro("HAVE_UNISTD_H", "1");
+
+	if (opt.multi) {
+		lib_mod.addCMacro("PDINSTANCE", "1");
+		lib_mod.addCMacro("PDTHREADS", "1");
+	}
+
+	if (opt.double) {
+		lib_mod.addCMacro("PD_FLOATSIZE", "64");
 	}
 
 	const os = target.result.os.tag;
 	switch (os) {
 		.windows => {
-			lib.root_module.addCMacro("WINVER", "0x502");
-			lib.root_module.addCMacro("WIN32", "1");
-			lib.root_module.addCMacro("_WIN32", "1");
+			lib_mod.addCMacro("WINVER", "0x502");
+			lib_mod.addCMacro("WIN32", "1");
+			lib_mod.addCMacro("_WIN32", "1");
 			lib.linkSystemLibrary("ws2_32");
 			lib.linkSystemLibrary("kernel32");
 		},
 		.macos => {
-			lib.root_module.addCMacro("HAVE_ALLOCA_H", "1");
-			lib.root_module.addCMacro("HAVE_LIBDL", "1");
-			lib.root_module.addCMacro("HAVE_MACHINE_ENDIAN_H", "1");
-			lib.root_module.addCMacro("_DARWIN_C_SOURCE", "1");
-			lib.root_module.addCMacro("_DARWIN_UNLIMITED_SELECT", "1");
-			lib.root_module.addCMacro("FD_SETSIZE", "10240");
+			lib_mod.addCMacro("HAVE_ALLOCA_H", "1");
+			lib_mod.addCMacro("HAVE_LIBDL", "1");
+			lib_mod.addCMacro("HAVE_MACHINE_ENDIAN_H", "1");
+			lib_mod.addCMacro("_DARWIN_C_SOURCE", "1");
+			lib_mod.addCMacro("_DARWIN_UNLIMITED_SELECT", "1");
+			lib_mod.addCMacro("FD_SETSIZE", "10240");
 			lib.linkSystemLibrary("dl");
 		},
 		.emscripten, .wasi => {
 			const sysroot = b.sysroot
 				orelse @panic("Pass '--sysroot \"$EMSDK/upstream/emscripten\"'");
 			const cache_include = std.fs.path.join(b.allocator, &.{
-				sysroot, "cache", "sysroot", "include"
+				sysroot, "cache", "sysroot", "include",
 			}) catch @panic("Out of memory");
 
 			var dir = std.fs.openDirAbsolute(cache_include, std.fs.Dir.OpenDirOptions{
-				.access_sub_paths = true, .no_follow = true,
+				.access_sub_paths = true,
+				.no_follow = true,
 			}) catch @panic("No emscripten cache. Generate it!");
 			dir.close();
 			lib.addSystemIncludePath(.{ .cwd_relative = cache_include });
 		},
 		else => { // Linux and FreeBSD
 			try flags.appendSlice(&.{
-				"-Wno-int-to-pointer-cast", "-Wno-pointer-to-int-cast"
+				"-Wno-int-to-pointer-cast",
+				"-Wno-pointer-to-int-cast",
 			});
-			lib.root_module.addCMacro("HAVE_ENDIAN_H", "1");
+			lib_mod.addCMacro("HAVE_ENDIAN_H", "1");
 			if (os == .linux) {
-				lib.root_module.addCMacro("HAVE_ALLOCA_H", "1");
-				lib.root_module.addCMacro("HAVE_LIBDL", "1");
+				lib_mod.addCMacro("HAVE_ALLOCA_H", "1");
+				lib_mod.addCMacro("HAVE_LIBDL", "1");
 				lib.linkSystemLibrary("dl");
 			}
 		}
@@ -161,7 +136,6 @@ pub fn build(b: *std.Build) !void {
 		.files = files.items,
 		.flags = flags.items,
 	});
-
 	b.installArtifact(lib);
 
 	const pdmod_dep = b.dependency("pd_module", .{
@@ -170,7 +144,7 @@ pub fn build(b: *std.Build) !void {
 		.float_size = @as(u8, if (opt.double) 64 else 32),
 	});
 
-	const mod = b.addModule("pd", .{
+	const mod = b.addModule("libpd", .{
 		.target = target,
 		.optimize = optimize,
 		.root_source_file = b.path("libpd.zig"),
@@ -178,3 +152,108 @@ pub fn build(b: *std.Build) !void {
 	});
 	mod.linkLibrary(lib);
 }
+
+const sources = [_][]const u8{
+	"src/d_arithmetic.c",
+	"src/d_array.c",
+	"src/d_ctl.c",
+	"src/d_dac.c",
+	"src/d_delay.c",
+	"src/d_fft.c",
+	"src/d_fft_fftsg.c",
+	"src/d_filter.c",
+	"src/d_global.c",
+	"src/d_math.c",
+	"src/d_misc.c",
+	"src/d_osc.c",
+	"src/d_resample.c",
+	"src/d_soundfile.c",
+	"src/d_soundfile_aiff.c",
+	"src/d_soundfile_caf.c",
+	"src/d_soundfile_next.c",
+	"src/d_soundfile_wave.c",
+	"src/d_ugen.c",
+	"src/g_all_guis.c",
+	"src/g_array.c",
+	"src/g_bang.c",
+	"src/g_canvas.c",
+	"src/g_clone.c",
+	"src/g_editor.c",
+	"src/g_editor_extras.c",
+	"src/g_graph.c",
+	"src/g_guiconnect.c",
+	"src/g_io.c",
+	"src/g_mycanvas.c",
+	"src/g_numbox.c",
+	"src/g_radio.c",
+	"src/g_readwrite.c",
+	"src/g_rtext.c",
+	"src/g_scalar.c",
+	"src/g_slider.c",
+	"src/g_template.c",
+	"src/g_text.c",
+	"src/g_toggle.c",
+	"src/g_traversal.c",
+	"src/g_undo.c",
+	"src/g_vumeter.c",
+	"src/m_atom.c",
+	"src/m_binbuf.c",
+	"src/m_class.c",
+	"src/m_conf.c",
+	"src/m_glob.c",
+	"src/m_memory.c",
+	"src/m_obj.c",
+	"src/m_pd.c",
+	"src/m_sched.c",
+	"src/s_audio.c",
+	"src/s_audio_dummy.c",
+	"src/s_inter.c",
+	"src/s_inter_gui.c",
+	"src/s_loader.c",
+	"src/s_main.c",
+	"src/s_net.c",
+	"src/s_path.c",
+	"src/s_print.c",
+	"src/s_utf8.c",
+	"src/x_acoustics.c",
+	"src/x_arithmetic.c",
+	"src/x_array.c",
+	"src/x_connective.c",
+	"src/x_file.c",
+	"src/x_gui.c",
+	"src/x_interface.c",
+	"src/x_list.c",
+	"src/x_midi.c",
+	"src/x_misc.c",
+	"src/x_net.c",
+	"src/x_scalar.c",
+	"src/x_text.c",
+	"src/x_time.c",
+	"src/x_vexp.c",
+	"src/x_vexp_if.c",
+	"src/x_vexp_fun.c",
+	"src/s_libpdmidi.c",
+	"src/x_libpdreceive.c",
+	"src/z_hooks.c",
+	"src/z_libpd.c",
+};
+
+const extra_sources = [_][]const u8{
+	"extra/bob~/bob~.c",
+	"extra/bonk~/bonk~.c",
+	"extra/choice/choice.c",
+	"extra/fiddle~/fiddle~.c",
+	"extra/loop~/loop~.c",
+	"extra/lrshift~/lrshift~.c",
+	"extra/pique/pique.c",
+	"extra/pd~/pd~.c",
+	"extra/pd~/pdsched.c",
+	"extra/sigmund~/sigmund~.c",
+	"extra/stdout/stdout.c",
+};
+
+const util_sources = [_][]const u8{
+	"src/z_print_util.c",
+	"src/z_queued.c",
+	"src/z_ringbuffer.c"
+};

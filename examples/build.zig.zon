@@ -5,11 +5,11 @@
 	.minimum_zig_version = "0.14.0",
 	.dependencies = .{
 		.libpd_zig = .{
-			.path = "../.."
+			.path = ".."
 		},
 		.raylib_zig = .{
-			.url = "git+https://github.com/myQwil/raylib-zig#5bbafa4f86eb3e3f41a107bbec6b8822e0f87c93",
-			.hash = "raylib_zig-5.6.0-dev-KE8REE0uBQD5Lzuc6qSZPtE5li3iPyU4iGQEMPqOPI11"
+			.url = "git+https://github.com/myQwil/raylib-zig#e072ff119be71727ec4e1b0cb6d8f892b32ff440",
+			.hash = "raylib_zig-5.6.0-dev-KE8REGgxBQDoHuPWlO7RnY7M1jFlWV4kP1QY7r52GoP-"
 		},
 	},
 	.paths = .{

@@ -15,16 +15,25 @@ pub fn build(b: *std.Build) !void {
 
 	const default: Options = .{};
 	const opt: Options = .{
-		.util = b.option(bool, "util", "compile utilities in `libpd_wrapper/util` (default)")
-			orelse default.util,
-		.extra = b.option(bool, "extra", "compile `pure-data/extra` externals which are then inited in libpd_init() (default)")
-			orelse default.extra,
-		.multi = b.option(bool, "multi", "compile with multiple instance support")
-			orelse default.multi,
-		.double = b.option(bool, "double", "compile with double-precision support")
-			orelse default.double,
-		.linkage = b.option(LinkMode, "linkage", "Library linking method")
-			orelse default.linkage,
+		.util = b.option(bool, "util",
+			"compile utilities in `libpd_wrapper/util`"
+		) orelse default.util,
+
+		.extra = b.option(bool, "extra",
+			"compile `pure-data/extra` externals which are then inited in libpd_init()"
+		) orelse default.extra,
+
+		.multi = b.option(bool, "multi",
+			"compile with multiple instance support"
+		) orelse default.multi,
+
+		.double = b.option(bool, "double",
+			"compile with double-precision support"
+		) orelse default.double,
+
+		.linkage = b.option(LinkMode, "linkage",
+			"Library linking method"
+		) orelse default.linkage,
 	};
 
 	const lib_mod = b.createModule(.{
@@ -230,8 +239,8 @@ const sources = [_][]const u8{
 	"src/x_text.c",
 	"src/x_time.c",
 	"src/x_vexp.c",
-	"src/x_vexp_if.c",
 	"src/x_vexp_fun.c",
+	"src/x_vexp_if.c",
 	"src/s_libpdmidi.c",
 	"src/x_libpdreceive.c",
 	"src/z_hooks.c",

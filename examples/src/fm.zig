@@ -33,7 +33,7 @@ fn AudioController(channels: u32) type { return struct {
 	var bridge: [block]i16 = undefined;
 	var onset: usize = block;
 
-	fn callback(buffer: ?*anyopaque, frames: c_uint) callconv(.C) void {
+	fn callback(buffer: ?*anyopaque, frames: c_uint) callconv(.c) void {
 		var buf: []i16 = @as([*]i16, @alignCast(@ptrCast(buffer orelse return)))
 			[0..frames * channels];
 		const prev = block - onset;
@@ -55,7 +55,7 @@ fn AudioController(channels: u32) type { return struct {
 		}
 	}
 
-	fn floatHook(recv: [*:0]const u8, f: f32) callconv(.C) void {
+	fn floatHook(recv: [*:0]const u8, f: f32) callconv(.c) void {
 		rl.traceLog(.info, "%s: %g", .{ recv, f });
 	}
 

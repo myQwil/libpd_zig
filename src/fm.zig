@@ -1,6 +1,16 @@
 const std = @import("std");
 const pd = @import("libpd");
 const rl = @import("raylib");
+const Allocator = std.mem.Allocator;
+
+fn allocPrintZ(
+	gpa: Allocator,
+	comptime fmt: []const u8,
+	args: anytype,
+) Allocator.Error![:0]u8 {
+	// this will eventually become allocPrintSentinel
+	return std.fmt.allocPrintSentinel(gpa, fmt, args, 0);
+}
 
 const Slope = struct {
 	m: f32,
@@ -157,15 +167,15 @@ pub fn main() !void {
 	const idx: Slope = .new(3200, 0, screenHeight);
 	var carrier: f32 = 400;
 
-	const s_pan = try std.fmt.allocPrintZ(rl.mem, "{d}pan", .{ patch.dollar_zero });
+	const s_pan = try allocPrintZ(rl.mem, "{d}pan", .{ patch.dollar_zero });
 	defer rl.mem.free(s_pan);
-	const s_freq = try std.fmt.allocPrintZ(rl.mem, "{d}freq", .{ patch.dollar_zero });
+	const s_freq = try allocPrintZ(rl.mem, "{d}freq", .{ patch.dollar_zero });
 	defer rl.mem.free(s_freq);
-	const s_tone = try std.fmt.allocPrintZ(rl.mem, "{d}tone", .{ patch.dollar_zero });
+	const s_tone = try allocPrintZ(rl.mem, "{d}tone", .{ patch.dollar_zero });
 	defer rl.mem.free(s_tone);
-	const s_idx = try std.fmt.allocPrintZ(rl.mem, "{d}idx", .{ patch.dollar_zero });
+	const s_idx = try allocPrintZ(rl.mem, "{d}idx", .{ patch.dollar_zero });
 	defer rl.mem.free(s_idx);
-	const s_car = try std.fmt.allocPrintZ(rl.mem, "{d}car", .{ patch.dollar_zero });
+	const s_car = try allocPrintZ(rl.mem, "{d}car", .{ patch.dollar_zero });
 	defer rl.mem.free(s_car);
 
 	const grid = blk: {
@@ -202,7 +212,8 @@ pub fn main() !void {
 		}
 		const wheel = rl.getMouseWheelMove();
 		if (wheel != 0) {
-			carrier *= @exp2(wheel / 12);
+			const val: f32 = if (wheel < 0) -1 else 1;
+			carrier *= @exp2(val / 12);
 			sendFloat(s_car.ptr, carrier);
 		}
 

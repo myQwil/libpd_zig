@@ -1,23 +1,22 @@
 .{
-	.name = .libpd,
-	.version = "0.1.6",
-	.fingerprint = 0xf27d162194cea9f1,
-	.minimum_zig_version = "0.14.0",
+	.name = .pd_test,
+	.version = "0.1.0",
+	.fingerprint = 0xa119bb1346b86446,
+	.minimum_zig_version = "0.15.0-dev.1509+b9a6dae2a",
 	.dependencies = .{
-		.pure_data = .{
-			.url = "git+https://github.com/pure-data/pure-data#0.55-2",
-			.hash = "N-V-__8AAHJlYQGnqR7ulWJdugy3jjWFdzf7wr55TuX-Yyr0",
+		.pd = .{
+			.url = "git+https://github.com/myQwil/pd#v0.56.0",
+			.hash = "pd-0.56.0-DC007cIcAgAilH0MjO73mPf8EGvxkYG_AnCICjtzERgu",
 		},
-		.pd_module = .{
-			.url = "git+https://github.com/myQwil/pd_module#v0.1.14",
-			.hash = "pd_module-0.1.14-NhzzyWghAQAGmL3xzqyb4yk9WK5lhFazZerR8MPoXQ-L",
+		.raylib_zig = .{
+			.url = "git+https://github.com/myQwil/raylib-zig?ref=master#1b2f84c9ad2f4634d45cf32740be5073ce98e7d2",
+			.hash = "raylib_zig-5.6.0-dev-KE8REDU6BQBAE0fkfN1aMenJks__oVSm4z81ArpOEEVH"
 		},
 	},
 	.paths = .{
-		"LICENSE",
-		"README.md",
+		"pd",
+		"src",
 		"build.zig",
 		"build.zig.zon",
-		"libpd.zig",
 	},
 }

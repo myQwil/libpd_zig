@@ -1,33 +1,16 @@
-# libpd_zig
+# LibPd Zig example
 
-This is [libpd](https://github.com/libpd/libpd),
-packaged for [Zig](https://ziglang.org/).
-
-## How to use it
-
-First, update your `build.zig.zon`:
-
+For the desktop version, run the command:
 ```
-zig fetch --save git+https://github.com/myQwil/libpd_zig#v0.1.6
+zig build run_fm
 ```
 
-Next, add this snippet to your `build.zig` script:
-
-```zig
-const libpd_dep = b.dependency("libpd_zig", .{
-    .target = target,
-    .optimize = optimize,
-});
+To run the example in a web browser, first install emsdk. Once emsdk is installed, set it up by running
+```
+emsdk install latest
 ```
 
-From here, you can add it to your project, either as a library or a module.
-
-### As a library
-```zig
-your_compilation.linkLibrary(libpd_dep.artifact("pd"));
+Find the folder where it's installed and run
 ```
-
-### As a module
-```zig
-your_compilation.root_module.addImport("pd", libpd_dep.module("pd")),
+zig build -Dtarget=wasm32-emscripten --sysroot [path to emsdk]/upstream/emscripten run_fm
 ```

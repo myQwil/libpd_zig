@@ -1,5 +1,5 @@
 const std = @import("std");
-const emcc = @import("raylib_zig").emcc;
+const emsdk = @import("raylib_zig").emsdk;
 
 const Dependency = enum {
 	raylib,
@@ -7,7 +7,6 @@ const Dependency = enum {
 
 const Example = struct {
 	name: []const u8,
-	desc: []const u8,
 	deps: []const Dependency = &.{},
 };
 
@@ -23,7 +22,6 @@ pub fn build(b: *std.Build) !void {
 	});
 	const raylib_mod = raylib_dep.module("raylib");
 	const raylib_lib = raylib_dep.artifact("raylib");
-	raylib_mod.linkLibrary(raylib_lib);
 
 	const libpd_dep = b.dependency("pd", .{
 		.target = target,
@@ -35,72 +33,77 @@ pub fn build(b: *std.Build) !void {
 	//---------------------------------------------------------------------------
 	// Examples
 	const examples = [_]Example{
-		.{
-			.name = "fm",
-			.desc = "frequency modulator",
-			.deps = &.{ .raylib },
-		},
+		.{ .name = "fm", .deps = &.{ .raylib } },
 	};
 
 	for (examples) |x| {
-		const xmod = b.createModule(.{
+		const exe_mod = b.createModule(.{
+			.root_source_file = b.path(b.fmt("src/{s}.zig", .{ x.name })),
 			.target = target,
 			.optimize = optimize,
-			.root_source_file = b.path(b.fmt("src/{s}.zig", .{ x.name })),
 			.imports = &.{.{ .name = "libpd", .module = libpd_mod }},
 		});
+		for (x.deps) |dep| switch (dep) {
+			.raylib => { exe_mod.addImport("raylib", raylib_mod); },
+		};
+
+		const run_step = b.step(
+			b.fmt("run_{s}", .{ x.name }),
+			b.fmt("Build and run {s}", .{ x.name }),
+		);
 
 		if (target.result.os.tag == .emscripten) {
-			const exe_lib = b.addLibrary(.{
+			const wasm = b.addLibrary(.{
 				.name = x.name,
-				.linkage = .static,
-				.root_module = xmod,
+				.root_module = exe_mod,
+			});
+			const install_dir: std.Build.InstallDir = .{ .custom = "web" };
+			const emcc_flags = emsdk.emccDefaultFlags(b.allocator, .{
+				.optimize = optimize,
+			});
+			const emcc_settings = emsdk.emccDefaultSettings(b.allocator, .{
+				.optimize = optimize,
 			});
 
-			var libs: std.ArrayList(*std.Build.Step.Compile) = .init(b.allocator);
-			defer libs.deinit();
-			try libs.appendSlice(&.{ exe_lib, libpd_lib });
-			for (x.deps) |dep| switch (dep) {
-				.raylib => {
-					xmod.addImport("raylib", raylib_mod);
-					try libs.append(raylib_lib);
-				},
-			};
-			const link = try emcc.linkWithEmscripten(b, libs.items);
-			link.addArg("--preload-file=pd");
+			const emcc_step = emsdk.emccStep(b, raylib_lib, wasm, .{
+				.optimize = optimize,
+				.flags = emcc_flags,
+				.settings = emcc_settings,
+				.shell_file_path = emsdk.shell(raylib_dep.builder),
+				.install_dir = install_dir,
+				.embed_paths = &.{.{ .src_path = "pd/" }},
+			});
 
-			b.getInstallStep().dependOn(&link.step);
-			const run = try emcc.emscriptenRunStep(b);
-			run.step.dependOn(&link.step);
-			const step_run = b.step("run_fm", "Run the {s} example");
-			step_run.dependOn(&run.step);
+			const emsdk_dep = b.dependency("emsdk", .{});
+			libpd_lib.root_module.addIncludePath(
+				emsdk_dep.path("upstream/emscripten/cache/sysroot/include"));
+
+			const html_filename = b.fmt("{s}.html", .{ x.name });
+			const emrun_step = emsdk.emrunStep(
+				b,
+				b.getInstallPath(install_dir, html_filename),
+				&.{},
+			);
+
+			emrun_step.dependOn(emcc_step);
+			run_step.dependOn(emrun_step);
 		} else {
-			for (x.deps) |dep| switch (dep) {
-				.raylib => {
-					xmod.addImport("raylib", raylib_mod);
-				},
-			};
 			const exe = b.addExecutable(.{
 				.name = x.name,
-				.root_module = xmod,
+				.root_module = exe_mod,
 			});
-			const install = b.addInstallArtifact(exe, .{});
-			const step_install = b.step(
-				x.name,
-				b.fmt("Build the {s} example", .{ x.desc }),
-			);
-			step_install.dependOn(&install.step);
 
-			const run = b.addRunArtifact(exe);
-			run.step.dependOn(&install.step);
-			const step_run = b.step(
-				b.fmt("run_{s}", .{ x.name }),
-				b.fmt("Build and run the {s} example", .{ x.desc }),
+			const install_cmd = b.addInstallArtifact(exe, .{});
+			const install_step = b.step(
+				x.name,
+				b.fmt("Build {s}", .{ x.name }),
 			);
-			step_run.dependOn(&run.step);
-			if (b.args) |args| {
-				run.addArgs(args);
-			}
+			install_step.dependOn(&install_cmd.step);
+			b.getInstallStep().dependOn(&install_cmd.step);
+
+			const run_cmd = b.addRunArtifact(exe);
+			run_cmd.step.dependOn(&install_cmd.step);
+			run_step.dependOn(&run_cmd.step);
 		}
 	}
 }

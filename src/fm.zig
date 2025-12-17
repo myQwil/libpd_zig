@@ -3,34 +3,51 @@ const pd = @import("libpd");
 const rl = @import("raylib");
 const Allocator = std.mem.Allocator;
 
-fn allocPrintZ(
+const channels = 2;
+const block = 64 * channels;
+
+inline fn allocPrintZ(
 	gpa: Allocator,
 	comptime fmt: []const u8,
 	args: anytype,
 ) Allocator.Error![:0]u8 {
-	// this will eventually become allocPrintSentinel
 	return std.fmt.allocPrintSentinel(gpa, fmt, args, 0);
 }
 
-const Slope = struct {
-	m: f32,
-	b: f32,
+fn floatHook(recv: [*:0]const u8, f: f32) callconv(.c) void {
+	rl.traceLog(.info, "%s: %g", .{ recv, f });
+}
 
-	fn new(min: f32, max: f32, run: f32) Slope {
-		return Slope{
-			.m = (max - min) / run,
-			.b = min,
-		};
+fn sendFloat(dest: [*:0]const u8, f: f32) void {
+	pd.sendFloat(dest, f) catch rl.traceLog(.warning, "couldn't find `%s`", .{ dest });
+}
+
+/// Holds the unused suffix of a processed block and supplies it to the next callback.
+const TailBuffer = struct {
+	buffer: [block]i16 = undefined,
+	/// Starting index of leftover samples.
+	onset: usize = block,
+
+	/// Copy leftover samples into `buf`, returning the unused tail of `buf`.
+	fn drain(self: *const TailBuffer, buf: []i16) []i16 {
+		const count = block - self.onset;
+		@memcpy(buf[0..count], self.buffer[self.onset..]);
+		return buf[count..];
 	}
 
-	fn at(self: *const Slope, x: f32) f32 {
-		return self.m * x + self.b;
+	/// Copy the prefix into `buf` and hold the remaining suffix for the next callback.
+	fn store(self: *TailBuffer, buf: []i16) void {
+		if (buf.len > 0) {
+			pd.processShort(1, null, &self.buffer) catch return;
+			@memcpy(buf, self.buffer[0..buf.len]);
+			self.onset = buf.len;
+		} else {
+			self.onset = block;
+		}
 	}
 };
 
-fn AudioController(channels: u32) type { return struct {
-	const Self = @This();
-
+const AudioController = struct {
 	/// handles freeing of the ring buffer, if in queued mode
 	base: pd.Base,
 	/// raylib audio stream
@@ -38,38 +55,24 @@ fn AudioController(channels: u32) type { return struct {
 	/// receiver for "toZig"
 	rec_tozig: *anyopaque,
 
-	const block = 64 * channels;
-	/// buffer that holds excess samples to be used in the next callback
-	var bridge: [block]i16 = undefined;
-	var onset: usize = block;
+	var tail: TailBuffer = .{};
 
 	fn callback(buffer: ?*anyopaque, frames: c_uint) callconv(.c) void {
-		var buf: []i16 = @as([*]i16, @alignCast(@ptrCast(buffer orelse return)))
-			[0..frames * channels];
-		const prev = block - onset;
-		@memcpy(buf[0..prev], bridge[onset..]);
-		buf = buf[prev..];
+		var buf: []i16 = blk: {
+			const ptr: [*]i16 = @ptrCast(@alignCast(buffer orelse return));
+			break :blk ptr[0 .. frames * channels];
+		};
+		buf = tail.drain(buf);
 
 		// pd delivers samples in blocks, so we round down to a multiple of block size
 		const ticks = buf.len / block;
 		pd.processShort(@intCast(ticks), null, buf.ptr) catch return;
 		buf = buf[ticks * block..];
 
-		if (buf.len > 0) {
-			// fill the buffer with part of a block and use the rest in next callback
-			pd.processShort(1, null, &bridge) catch return;
-			@memcpy(buf, bridge[0..buf.len]);
-			onset = buf.len;
-		} else {
-			onset = block;
-		}
+		tail.store(buf);
 	}
 
-	fn floatHook(recv: [*:0]const u8, f: f32) callconv(.c) void {
-		rl.traceLog(.info, "%s: %g", .{ recv, f });
-	}
-
-	fn init(sample_rate: u32, bit_depth: u32) !Self {
+	fn init(sample_rate: u32, bit_depth: u32) !AudioController {
 		rl.initAudioDevice();
 		errdefer rl.closeAudioDevice();
 
@@ -101,14 +104,14 @@ fn AudioController(channels: u32) type { return struct {
 		// audio processing on
 		pd.computeAudio(true);
 
-		return Self{
+		return .{
 			.base = base,
 			.stream = stream,
 			.rec_tozig = rec_tozig,
 		};
 	}
 
-	fn close(self: *const Self) void {
+	fn close(self: *const AudioController) void {
 		self.base.close();
 		pd.unbind(self.rec_tozig);
 
@@ -116,14 +119,30 @@ fn AudioController(channels: u32) type { return struct {
 		rl.unloadAudioStream(self.stream);
 		rl.closeAudioDevice();
 	}
-};}
+};
+
+const Slope = struct {
+	m: f32,
+	b: f32,
+
+	fn init(min: f32, max: f32, run: f32) Slope {
+		return .{
+			.m = (max - min) / run,
+			.b = min,
+		};
+	}
+
+	fn at(self: Slope, x: f32) f32 {
+		return self.m * x + self.b;
+	}
+};
 
 const Line = struct {
 	start: rl.Vector2,
 	end: rl.Vector2,
 	color: rl.Color,
 
-	fn new(x1: f32, y1: f32, x2: f32, y2: f32, color: rl.Color) Line {
+	fn init(x1: f32, y1: f32, x2: f32, y2: f32, color: rl.Color) Line {
 		return .{
 			.start = .{ .x = x1, .y = y1 },
 			.end   = .{ .x = x2, .y = y2 },
@@ -131,18 +150,10 @@ const Line = struct {
 		};
 	}
 
-	fn draw(self: *const Line) void {
+	fn draw(self: Line) void {
 		rl.drawLineV(self.start, self.end, self.color);
 	}
 };
-
-fn sendBang(dest: [*:0]const u8) void {
-	pd.sendBang(dest) catch rl.traceLog(.warning, "couldn't find `%s`", .{ dest });
-}
-
-fn sendFloat(dest: [*:0]const u8, f: f32) void {
-	pd.sendFloat(dest, f) catch rl.traceLog(.warning, "couldn't find `%s`", .{ dest });
-}
 
 pub fn main() !void {
 	//---------------------------------------------------------------------------
@@ -153,7 +164,7 @@ pub fn main() !void {
 		"raylib-zig [core] example - libpd audio streaming");
 	defer rl.closeWindow();
 
-	const audio: AudioController(2) = try .init(48000, 16);
+	const audio: AudioController = try .init(48000, 16);
 	defer audio.close();
 
 	const patch: pd.Patch = try .fromFile("test.pd", "./pd");
@@ -161,10 +172,10 @@ pub fn main() !void {
 
 	rl.setTargetFPS(30); // Set our game to run at 30 frames-per-second
 
-	const pan: Slope = .new(-1, 1, screenWidth);
-	const freq: Slope = .new(0, 300, screenWidth);
-	const tone: Slope = .new(100, 5, screenHeight);
-	const idx: Slope = .new(3200, 0, screenHeight);
+	const pan: Slope = .init(-1, 1, screenWidth);
+	const freq: Slope = .init(0, 300, screenWidth);
+	const tone: Slope = .init(100, 5, screenHeight);
+	const idx: Slope = .init(3200, 0, screenHeight);
 	var carrier: f32 = 400;
 
 	const s_pan = try allocPrintZ(rl.mem, "{d}pan", .{ patch.dollar_zero });
@@ -188,8 +199,8 @@ pub fn main() !void {
 		while (i < lines) : ({f += inc; i += 2;}) {
 			const wi: f32 = screenWidth * f;
 			const hi: f32 = screenHeight * f;
-			gl[i]     = .new(wi, 0,  wi,          screenHeight, .dark_gray);
-			gl[i + 1] = .new(0,  hi, screenWidth, hi,           .dark_gray);
+			gl[i]     = .init(wi, 0,  wi,          screenHeight, .dark_gray);
+			gl[i + 1] = .init(0,  hi, screenWidth, hi,           .dark_gray);
 		}
 		break :blk gl;
 	};

@@ -5,16 +5,16 @@
 	.minimum_zig_version = "0.15.1",
 	.dependencies = .{
 		.pd = .{
-			.url = "git+https://github.com/myQwil/pd#v0.56.2-1",
-			.hash = "pd-0.56.2-DC007bU8AgBxW8P3wamquZ-KYHIUP5MFHb0kTSaFx27h",
+			.url = "git+https://github.com/myQwil/pd#22b2a70019f042dd107047c16fbb50b83a8b1d4d",
+			.hash = "pd-0.56.2-DC007ShmAgBqGeG5kmTr3zqu-xI1nmsBGjtRW1cReXzy",
 		},
 		.raylib_zig = .{
-			.url = "git+https://github.com/raylib-zig/raylib-zig?ref=devel#a4d18b2d1cf8fdddec68b5b084535fca0475f466",
-			.hash = "raylib_zig-5.6.0-dev-KE8REL5MBQAf3p497t52Xw9P7ojndIkVOWPXnLiLLw2P",
+			.url = "git+https://github.com/myQwil/raylib-zig?ref=devel#7a266555171e78715708a495e1111094dc0ab19d",
+			.hash = "raylib_zig-5.6.0-dev-KE8REMRmBQDwVx9jhAc6ldO56BAs0idwcaCgaOGhBYmW",
 		},
 		.emsdk = .{
-			.url = "git+https://github.com/emscripten-core/emsdk?ref=4.0.9#3bcf1dcd01f040f370e10fe673a092d9ed79ebb5",
-			.hash = "N-V-__8AAJl1DwBezhYo_VE6f53mPVm00R-Fk28NPW7P14EQ",
+			.url = "git+https://github.com/emscripten-core/emsdk#5.0.0",
+			.hash = "N-V-__8AAFkIEABHCzhWh7s5FZN-DraLYdHuW1kbdwyip82c",
 		},
 	},
 	.paths = .{

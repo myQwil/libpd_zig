@@ -65,20 +65,21 @@ pub fn build(b: *std.Build) !void {
 				.optimize = optimize,
 			});
 
+			const html_filename = b.fmt("{s}.html", .{ x.name });
 			const emcc_step = emsdk.emccStep(b, raylib_lib, wasm, .{
 				.optimize = optimize,
 				.flags = emcc_flags,
 				.settings = emcc_settings,
 				.shell_file_path = emsdk.shell(raylib_dep.builder),
 				.install_dir = install_dir,
-				.embed_paths = &.{.{ .src_path = "pd/" }},
+				.preload_paths = &.{.{ .src_path = .{ .cwd_relative = "pd" } }},
+				.out_file_name = html_filename,
 			});
 
 			const emsdk_dep = b.dependency("emsdk", .{});
 			libpd_lib.root_module.addIncludePath(
 				emsdk_dep.path("upstream/emscripten/cache/sysroot/include"));
 
-			const html_filename = b.fmt("{s}.html", .{ x.name });
 			const emrun_step = emsdk.emrunStep(
 				b,
 				b.getInstallPath(install_dir, html_filename),

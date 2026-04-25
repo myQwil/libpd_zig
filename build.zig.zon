@@ -2,11 +2,11 @@
 	.name = .pd_test,
 	.version = "0.1.1",
 	.fingerprint = 0xa119bb1346b86446,
-	.minimum_zig_version = "0.15.1",
+	.minimum_zig_version = "0.16.0",
 	.dependencies = .{
 		.pd = .{
-			.url = "git+https://github.com/myQwil/pd#22b2a70019f042dd107047c16fbb50b83a8b1d4d",
-			.hash = "pd-0.56.2-DC007ShmAgBqGeG5kmTr3zqu-xI1nmsBGjtRW1cReXzy",
+			.url = "git+https://github.com/myQwil/pd#ac2f257d42574c47e24d4427758184f3dcda1374",
+			.hash = "pd-0.56.2-DC007atgAgA-CUHA21DAnDMMjdjyEEmChKBJXuJ0YbL_",
 		},
 		.raylib_zig = .{
 			.url = "git+https://github.com/myQwil/raylib-zig?ref=devel#7a266555171e78715708a495e1111094dc0ab19d",

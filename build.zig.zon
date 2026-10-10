@@ -2,19 +2,15 @@
 	.name = .pd_test,
 	.version = "0.1.1",
 	.fingerprint = 0xa119bb1346b86446,
-	.minimum_zig_version = "0.16.0",
+	.minimum_zig_version = "0.17.0",
 	.dependencies = .{
 		.pd = .{
-			.url = "git+https://github.com/myQwil/pd#ac2f257d42574c47e24d4427758184f3dcda1374",
-			.hash = "pd-0.56.2-DC007atgAgA-CUHA21DAnDMMjdjyEEmChKBJXuJ0YbL_",
+			.url = "git+https://github.com/myQwil/pd#54f2e478cc99983c9313e833c61e8667bb55443c",
+			.hash = "pd-0.57.0-DC007QpeAgCz5t8-dA0XP29YBMOX2hwj3NUIWtflQChv",
 		},
 		.raylib_zig = .{
-			.url = "git+https://github.com/myQwil/raylib-zig?ref=devel#7a266555171e78715708a495e1111094dc0ab19d",
-			.hash = "raylib_zig-5.6.0-dev-KE8REMRmBQDwVx9jhAc6ldO56BAs0idwcaCgaOGhBYmW",
-		},
-		.emsdk = .{
-			.url = "git+https://github.com/emscripten-core/emsdk#5.0.0",
-			.hash = "N-V-__8AAFkIEABHCzhWh7s5FZN-DraLYdHuW1kbdwyip82c",
+			.url = "git+https://github.com/raylib-zig/raylib-zig?ref=devel#50d450099da664bedd7dcc6ed40204ab0bb861a5",
+			.hash = "raylib_zig-6.0.0-KE8REDSmBQAbyUv_Fh71wgvhQSP2zsmVxtPRLzCgIXWK",
 		},
 	},
 	.paths = .{
